@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>BTC K线盘感训练 · 电脑版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0b0e14; color: #d5dbe5;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+    padding: 12px; -webkit-tap-highlight-color: transparent;
+  }
+  .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .title { font-size: 16px; font-weight: 600; }
+  .title small { font-size: 12px; color: #8b95a5; font-weight: 400; margin-left: 6px; }
+  button {
+    background: #1e2635; color: #d5dbe5; border: 1px solid #2c3648;
+    border-radius: 8px; padding: 6px 14px; font-size: 13px; cursor: pointer;
+  }
+  button:active { background: #2a3547; }
+
+  .tf-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .tf-btn { flex: 1; padding: 8px 0; font-size: 14px; font-weight: 600; }
+  .tf-btn.on { background: #2f81f7; border-color: #2f81f7; color: #fff; }
+
+  .stats { display: flex; gap: 10px; margin-bottom: 8px; }
+  .stat { flex: 1; background: #12161f; border: 1px solid #232a36; border-radius: 10px; padding: 7px 10px; }
+  .stat .l { font-size: 10.5px; color: #8b95a5; }
+  .stat .v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .info {
+    display: flex; flex-wrap: wrap; gap: 3px 14px; align-items: baseline;
+    background: #12161f; border: 1px solid #232a36; border-radius: 10px;
+    padding: 8px 12px; margin-bottom: 8px;
+    font-size: 13px; color: #8b95a5;
+    font-variant-numeric: tabular-nums; min-height: 40px;
+  }
+  .info .date { color: #d5dbe5; font-weight: 600; }
+  .info b { font-weight: 600; }
+  .up { color: #0ecb81; }
+  .down { color: #f6465d; }
+
+  .chart-wrap { background: #12161f; border: 1px solid #232a36; border-radius: 10px; overflow: hidden; }
+  svg { display: block; width: 100%; touch-action: none; cursor: crosshair; }
+  .hint { font-size: 12px; color: #5a6472; margin-top: 6px; text-align: center; }
+
+  /* ===== 下单区 ===== */
+  .panel { background: #12161f; border: 1px solid #232a36; border-radius: 10px; padding: 10px 12px; margin-top: 8px; }
+  .row1 { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; color: #8b95a5; }
+  .row1 input[type=range] { flex: 1; accent-color: #2f81f7; height: 24px; }
+  .row1 b { width: 40px; text-align: right; color: #d5dbe5; }
+  .row2 { display: flex; gap: 8px; margin-bottom: 8px; }
+  .row2 input {
+    flex: 1; background: #0b0e14; border: 1px solid #2c3648; border-radius: 8px;
+    color: #d5dbe5; padding: 9px 10px; font-size: 15px; outline: none; min-width: 0;
+  }
+  .row2 button { font-size: 12px; padding: 0 10px; color: #8b95a5; }
+  .row3 { display: flex; gap: 10px; }
+  .row3 button { flex: 1; padding: 12px 0; font-size: 15px; font-weight: 700; color: #fff; border: none; }
+  #longBtn { background: #0ecb81; }
+  #shortBtn { background: #f6465d; }
+  .row3 button:disabled { background: #1e2635; color: #5a6472; }
+
+  /* ===== 持仓 ===== */
+  .pos { background: #12161f; border: 1px solid #232a36; border-radius: 10px; padding: 8px 12px; margin-top: 8px; }
+  .pos .empty { font-size: 12px; color: #5a6472; text-align: center; padding: 4px 0; }
+  .pos-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #1c232f; font-size: 12.5px; }
+  .pos-item:last-child { border-bottom: none; }
+  .tag { padding: 2px 7px; border-radius: 6px; font-weight: 700; font-size: 11px; white-space: nowrap; }
+  .tag.long { background: rgba(14,203,129,.15); color: #0ecb81; }
+  .tag.short { background: rgba(246,70,93,.15); color: #f6465d; }
+  .p-info { flex: 1; color: #8b95a5; line-height: 1.5; font-variant-numeric: tabular-nums; }
+  .p-pnl { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .close-btn { font-size: 12px; padding: 6px 12px; flex-shrink: 0; }
+
+  /* ===== 回放控制 ===== */
+  .pb { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .pb button { padding: 8px 12px; font-size: 13px; }
+  .pb .on { background: #2f81f7; border-color: #2f81f7; color: #fff; }
+  #barCnt { margin-left: auto; font-size: 11.5px; color: #5a6472; }
+
+  /* ===== 结算弹层 ===== */
+  #overlay {
+    position: fixed; inset: 0; background: rgba(11,14,20,.95); z-index: 50;
+    display: none; flex-direction: column; padding: 24px 16px; overflow-y: auto;
+  }
+  #overlay.show { display: flex; }
+  .res-title { font-size: 22px; font-weight: 700; }
+  .res-sub { font-size: 13px; color: #8b95a5; margin: 4px 0 18px; }
+  .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .res-cell { background: #12161f; border: 1px solid #232a36; border-radius: 10px; padding: 12px; }
+  .res-cell .l { font-size: 11px; color: #8b95a5; margin-bottom: 4px; }
+  .res-cell .v { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+  th { color: #8b95a5; font-weight: 400; text-align: right; padding: 6px; border-bottom: 1px solid #232a36; }
+  th:first-child, td:first-child { text-align: left; }
+  td { padding: 6px; border-bottom: 1px solid #1c232f; text-align: right; font-variant-numeric: tabular-nums; }
+  .res-btns { display: flex; gap: 10px; }
+  .res-btns button { flex: 1; padding: 13px 0; font-size: 15px; font-weight: 600; }
+  #againBtn { background: #0ecb81; color: #06251a; border: none; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 200px; transform: translateX(-50%);
+    background: #f6465d; color: #fff; padding: 9px 18px; border-radius: 10px;
+    font-size: 13px; z-index: 60; display: none; max-width: 80vw; text-align: center;
+  }
+
+  /* ===== 桌面版分栏 ===== */
+  .layout { display: contents; }
+  @media (min-width: 900px) {
+    body { max-width: 1480px; margin: 0 auto; }
+    .layout { display: flex; gap: 14px; align-items: flex-start; }
+    .main-col { flex: 1; min-width: 0; }
+    .side-col { width: 380px; flex-shrink: 0; }
+    .chart-wrap svg { min-height: 480px; }
+    .side-col .panel, .side-col .pos, .side-col .pb { margin-top: 10px; }
+    .side-col .tf-row, .side-col .stats { margin-bottom: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="title">BTC 盘感训练<small>加载中…</small></div>
+  <div>
+    <button id="regen">换一段</button>
+    <button id="quitBtn">结束</button>
+  </div>
+</div>
+
+<div class="layout"><div class="main-col"><div class="info" id="info"><span>按住图表查看单根K线详情（仅已揭示部分可选中）</span></div>
+
+<div class="chart-wrap">
+  <svg id="chart" viewBox="0 0 760 420"></svg>
+</div>
+<div class="hint" id="hint">开局揭示前40根，其余随播放逐步揭开 · 成交价 = 下一根开盘价 · 手续费0.05%双边 · 盘中触及强平价即爆仓</div>
+
+</div><div class="side-col"><div class="tf-row">
+  <button class="tf-btn on" data-tf="1h">1小时</button>
+  <button class="tf-btn" data-tf="4h">4小时</button>
+  <button class="tf-btn" data-tf="1d">日线</button>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="l">总权益</div><div class="v" id="eqV">1000.00</div></div>
+  <div class="stat"><div class="l">收益率</div><div class="v" id="pctV">+0.00%</div></div>
+  <div class="stat"><div class="l">可用余额</div><div class="v" id="freeV">1000.00</div></div>
+</div>
+
+<div class="panel">
+  <div class="row1">
+    <span>杠杆</span>
+    <input type="range" id="lev" min="1" max="20" step="1" value="5">
+    <b id="levVal">5x</b>
+  </div>
+  <div class="row2">
+    <input id="margin" type="number" inputmode="decimal" placeholder="保证金 (USDT)">
+    <button data-frac="0.25">25%</button>
+    <button data-frac="0.5">50%</button>
+    <button data-frac="1">最大</button>
+  </div>
+  <div class="row3">
+    <button id="longBtn">开多</button>
+    <button id="shortBtn">开空</button>
+  </div>
+</div>
+
+<div class="pos" id="posList"></div>
+
+<div class="pb">
+  <button id="playBtn">▶ 播放</button>
+  <button id="stepBtn">下一根</button>
+  <button data-spd="1">1x</button>
+  <button data-spd="2">2x</button>
+  <button data-spd="4">4x</button>
+  <button data-spd="8" class="on">8x</button>
+  <span id="barCnt"></span>
+</div>
+
+</div></div>
+<div id="overlay">
+  <div class="res-title" id="resTitle">本局结束</div>
+  <div class="res-sub" id="resReason"></div>
+  <div class="res-grid" id="resGrid"></div>
+  <table id="tradeTable"></table>
+  <div class="res-btns">
+    <button id="againBtn">再来一局（换一段行情）</button>
+    <button id="closeResBtn">查看K线复盘</button>
+  </div>
+  <div style="height:24px"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  var svg = document.getElementById('chart');
+  var info = document.getElementById('info');
+  var NS = 'http://www.w3.org/2000/svg';
+  var W = 760, H = 420, L = 10, R = 64, T = 12, B = 28;
+  var plotW = W - L - R, plotH = H - T - B;
+  var N = 120;
+  var START = 39;               // 开局揭示 40 根（0..39）
+  var data = [], ALL = [], pinned = -1, cur = -1;
+  var UP = '#0ecb81', DOWN = '#f6465d';
+
+  /* ============ 合约引擎参数（2026-11-03 用户拍板） ============ */
+  var INIT = 1000, FEE = 0.0005, MMR = 0.005;
+  var balance, positions, pending, trades, equityCurve, pointer, over, nextId;
+
+  function resetGame() {
+    balance = INIT; positions = []; pending = []; trades = []; equityCurve = [];
+    pointer = START; over = false; nextId = 1;
+    document.getElementById('margin').value = '100';
+    render(); updateHUD(); renderPos();
+    document.getElementById('overlay').classList.remove('show');
+  }
+
+  function liqPrice(dir, entry, lev) {
+    return dir === 'long' ? entry * (1 - 1 / lev + MMR) : entry * (1 + 1 / lev - MMR);
+  }
+  function floating(p, price) {
+    return p.dir === 'long' ? (price - p.entry) * p.qty : (p.entry - price) * p.qty;
+  }
+  function equityAt(price) {
+    var e = balance;
+    for (var i = 0; i < positions.length; i++) {
+      var f = floating(positions[i], price);
+      e += positions[i].margin + (isFinite(f) ? f : 0);
+    }
+    return e;
+  }
+  function money(n) { return (n >= 0 ? '+' : '') + n.toFixed(2); }
+  function toast(msg, ok) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.background = ok ? '#0ecb81' : '#f6465d';
+    t.style.color = ok ? '#06251a' : '#fff';
+    t.style.display = 'block';
+    clearTimeout(t._h); t._h = setTimeout(function () { t.style.display = 'none'; }, 2200);
+  }
+
+  function requestOpen(dir) {
+    if (over) return;
+    if (pending.some(function (o) { return o.dir === dir; })) { toast('该方向已有挂单'); return; }
+    if (positions.some(function (p) { return p.dir === dir; })) { toast('该方向已有持仓，请先平仓'); return; }
+    var margin = parseFloat(document.getElementById('margin').value);
+    if (!margin || margin <= 0) { toast('请输入保证金'); return; }
+    if (margin < 5) { toast('单笔保证金至少 5 USDT'); return; }
+    if (margin > balance) { toast('可用余额不足'); return; }
+    pending.push({ dir: dir, margin: margin, lev: curLev, submitBar: pointer });
+    toast((dir === 'long' ? '多' : '空') + '单已挂出，下一根开盘成交', true);
+    renderPos();
+  }
+
+  function requestClose(id) {
+    var p = positions.find(function (x) { return x.id === id; });
+    if (!p || p.closeReq) return;
+    p.closeReq = true;
+    toast('平仓挂单，下一根开盘成交', true);
+    renderPos();
+  }
+
+  // 推进一根K线：pointer++，成交挂单 → 执行平仓 → 强平判定 → 记录权益
+  function advance() {
+    if (over) return;
+    if (pointer >= N - 1) { endSession('行情已揭示到最后'); return; }
+    pointer++;
+    var bar = data[pointer];
+
+    // 1) 挂单成交（上一根挂出，本根开盘价成交）
+    var fills = pending.filter(function (o) { return o.submitBar === pointer - 1; });
+    pending = pending.filter(function (o) { return o.submitBar !== pointer - 1; });
+    fills.forEach(function (o) {
+      // 防御：价格非法则拒绝成交并退款
+      if (!isFinite(bar.open) || bar.open <= 0) {
+        balance += o.margin;
+        toast('成交异常已退款，请重试');
+        return;
+      }
+      var fee = o.margin * o.lev * FEE;
+      balance -= (o.margin + fee);
+      positions.push({
+        id: nextId++, dir: o.dir, entry: bar.open,
+        qty: o.margin * o.lev / bar.open,
+        margin: o.margin, lev: o.lev,
+        liq: liqPrice(o.dir, bar.open, o.lev),
+        openBar: pointer, feeOpen: fee, closeReq: false
+      });
+      toast((o.dir === 'long' ? '多' : '空') + '仓成交 @ ' + fmt(bar.open), true);
+    });
+
+    // 2) 请求平仓的仓位，按本根开盘价平掉
+    positions.slice().forEach(function (p) {
+      if (!p.closeReq) return;
+      var feeClose = p.qty * bar.open * FEE;
+      var pnl = floating(p, bar.open) - p.feeOpen - feeClose;
+      balance += p.margin + pnl;
+      positions = positions.filter(function (x) { return x !== p; });
+      trades.push({ dir: p.dir, lev: p.lev, entry: p.entry, exit: bar.open, pnl: pnl,
+        result: pnl > 0 ? '盈利' : (pnl < 0 ? '亏损' : '平手'), openBar: p.openBar, closeBar: pointer });
+    });
+
+    // 3) 强平判定：盘中触及（high/low），开盘已穿则按开盘价爆
+    positions.slice().forEach(function (p) {
+      var hit = null;
+      if (p.dir === 'long' && bar.low <= p.liq) hit = Math.min(bar.open, p.liq);
+      if (p.dir === 'short' && bar.high >= p.liq) hit = Math.max(bar.open, p.liq);
+      if (hit !== null) {
+        positions = positions.filter(function (x) { return x !== p; });
+        trades.push({ dir: p.dir, lev: p.lev, entry: p.entry, exit: hit, pnl: -p.margin,
+          result: '爆仓', openBar: p.openBar, closeBar: pointer });
+        toast('⚠️ ' + (p.dir === 'long' ? '多' : '空') + '仓 ' + p.lev + 'x 爆仓');
+      }
+    });
+
+    equityCurve.push(equityAt(bar.close));
+
+    if (balance <= 0.5 && positions.length === 0) { endSession('资金亏光，爆仓出局'); return; }
+    render(); updateHUD(); renderPos();
+  }
+
+  function endSession(reason) {
+    over = true; pause();
+    var last = data[pointer];
+    positions.slice().forEach(function (p) {
+      var feeClose = p.qty * last.close * FEE;
+      var pnl = floating(p, last.close) - p.feeOpen - feeClose;
+      balance += p.margin + pnl;
+      trades.push({ dir: p.dir, lev: p.lev, entry: p.entry, exit: last.close, pnl: pnl,
+        result: '终局结算', openBar: p.openBar, closeBar: pointer });
+    });
+    positions = [];
+    equityCurve.push(equityAt(last.close));
+    render(); updateHUD(); renderPos();
+    showResult(reason, equityAt(last.close));
+  }
+
+  /* ============ 真实数据加载 ============ */
+  function pctOf(c, p) { return (c - p) / p * 100; }
+
+  // 数据字段统一 + 清洗：非法K线直接剔除，杜绝 NaN 进入引擎
+  function normalize(bars) {
+    var out = [];
+    for (var i = 0; i < bars.length; i++) {
+      var b = bars[i];
+      b.o = +b.o; b.h = +b.h; b.l = +b.l; b.c = +b.c; b.v = +b.v || 0;
+      if (!isFinite(b.o) || !isFinite(b.h) || !isFinite(b.l) || !isFinite(b.c) || b.o <= 0) continue;
+      b.open = b.o; b.high = b.h; b.low = b.l; b.close = b.c;
+      out.push(b);
+    }
+    return out;
+  }
+
+  var selectedTF = '1h';
+  var TF_NAME = { '1h': '1小时', '4h': '4小时', '1d': '日线' };
+  var OKX_BAR = { '1h': '1H', '4h': '4H', '1d': '1D' };
+
+  async function loadReal() {
+    // 本地缓存 6 小时，切换周期不重拉
+    var cacheKey = 'kl_btc_v2_' + selectedTF;
+    try {
+      var cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+      if (cached && Date.now() - cached.ts < 6 * 3600 * 1000 && cached.bars.length > 300) {
+        ALL = normalize(cached.bars);
+        return true;
+      }
+    } catch (e) { /* 缓存损坏则重拉 */ }
+
+    var mapped = null;
+    try {
+      var r = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=' + selectedTF + '&limit=1000');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var raw = await r.json();
+      mapped = raw.map(function (k) {
+        return { t: k[0], d: new Date(k[0]).toISOString().slice(0, 10),
+                 hh: new Date(k[0]).toISOString().slice(11, 16),
+                 o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] };
+      });
+    } catch (e) { /* 换 OKX */ }
+    if (!mapped) {
+      try {
+        var r2 = await fetch('https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=' + OKX_BAR[selectedTF] + '&limit=300');
+        var raw2 = await r2.json();
+        mapped = raw2.data.map(function (k) {
+          return { t: +k[0], d: new Date(+k[0]).toISOString().slice(0, 10),
+                   hh: new Date(+k[0]).toISOString().slice(11, 16),
+                   o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] };
+        }).sort(function (a, b) { return a.t - b.t; });
+      } catch (e2) { /* 回退模拟 */ }
+    }
+    if (!mapped || !mapped.length) return false;
+    for (var i = 0; i < mapped.length; i++) {
+      mapped[i].pct = i > 0 ? pctOf(mapped[i].c, mapped[i - 1].c) : pctOf(mapped[i].c, mapped[i].o);
+    }
+    ALL = normalize(mapped);
+    try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), bars: ALL })); } catch (e) {}
+    return true;
+  }
+
+  function newWindow() {
+    if (ALL.length <= N) { data = ALL.slice(); return; }
+    var maxOff = ALL.length - N;
+    data = ALL.slice(Math.floor(Math.random() * (maxOff + 1)));
+    data = data.slice(0, N);
+  }
+
+  // 离线兜底：几何随机游走
+  function genData() {
+    data = [];
+    var price = 20000 + Math.random() * 60000, day = new Date();
+    for (var i = 0; i < N; i++) {
+      var prev = price;
+      var trend = (Math.random() < 0.25) ? (Math.random() - 0.5) * 0.03 : 0;
+      var drift = (Math.random() - 0.5) * 0.05 + trend;
+      var o = prev * (1 + (Math.random() - 0.5) * 0.02);
+      var c = prev * (1 + drift);
+      data.push({
+        d: day.toISOString().slice(0, 10),
+        o: o, h: Math.max(o, c) * (1 + Math.random() * 0.025),
+        l: Math.min(o, c) * (1 - Math.random() * 0.025), c: c,
+        v: 200 + Math.random() * 800,
+        pct: (c - prev) / prev * 100
+      });
+      price = c; day.setDate(day.getDate() - 1);
+    }
+    data.reverse(); ALL = [];
+    normalize(data);
+  }
+
+  /* ============ 渲染（只画 pointer 及之前的K线，结构上防前视） ============ */
+  function color(k) { return k.c >= k.o ? UP : DOWN; }
+  function fmt(v) { return v.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+  function pctStr(p) { return (p >= 0 ? '+' : '') + p.toFixed(2) + '%'; }
+  function volFmt(v) {
+    if (v >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+    if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+    return v.toFixed(0);
+  }
+  function el(name, attrs, parent) {
+    var e = document.createElementNS(NS, name);
+    for (var a in attrs) e.setAttribute(a, attrs[a]);
+    (parent || svg).appendChild(e);
+    return e;
+  }
+
+  var lo, hi, y, x, bodyW;
+
+  function render() {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var vis = data.slice(0, pointer + 1);
+    lo = Infinity; hi = -Infinity; var maxV = 0;
+    vis.forEach(function (k) {
+      lo = Math.min(lo, k.l); hi = Math.max(hi, k.h);
+      maxV = Math.max(maxV, k.v || 0);
+    });
+    // 强平线纳入坐标轴，但扩展封顶：最多各扩 60% 数据区间，防止远处强平线把K线压扁
+    var dLo = lo, dHi = hi, ext = (dHi - dLo) * 0.6;
+    positions.forEach(function (p) {
+      if (!isFinite(p.liq)) return;
+      if (p.liq < lo) lo = Math.max(p.liq, dLo - ext);
+      if (p.liq > hi) hi = Math.min(p.liq, dHi + ext);
+    });
+    if (!isFinite(lo) || !isFinite(hi) || hi <= lo) { lo = 0; hi = 1; }
+    var pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+    // 主图 70% + 成交量副图 30%
+    var priceH = Math.round(plotH * 0.7), volGap = 6;
+    var volH = plotH - priceH - volGap;
+    var volBase = T + priceH + volGap + volH;
+    y = function (v) { return T + (hi - v) / (hi - lo) * priceH; };
+    x = function (i) { return L + plotW / N * (i + 0.5); };
+    bodyW = plotW / N * 0.62;
+
+    for (var g = 0; g <= 4; g++) {
+      var gv = hi - (hi - lo) * g / 4, gy = y(gv);
+      el('line', { x1: L, y1: gy, x2: L + plotW, y2: gy, stroke: '#1c232f', 'stroke-width': 1 });
+      var t = el('text', { x: L + plotW + 6, y: gy + 4, 'font-size': 11, fill: '#5a6472' });
+      t.textContent = fmt(gv);
+    }
+    var step = Math.ceil(N / 6);
+    for (var i = 0; i <= pointer; i += step) {
+      var t2 = el('text', { x: x(i), y: H - 9, 'font-size': 11, 'text-anchor': 'middle', fill: '#5a6472' });
+      t2.textContent = selectedTF === '1d' ? data[i].d.slice(5) : data[i].d.slice(5) + ' ' + data[i].hh;
+    }
+
+    vis.forEach(function (k, i) {
+      var cx = x(i), col = color(k);
+      el('line', { x1: cx, y1: y(k.h), x2: cx, y2: y(k.l), stroke: col, 'stroke-width': 1 });
+      var top = y(Math.max(k.o, k.c)), hgt = Math.max(1, Math.abs(y(k.o) - y(k.c)));
+      el('rect', { x: cx - bodyW / 2, y: top, width: bodyW, height: hgt, fill: col, rx: 1 });
+    });
+
+    // 主图/副图分隔线 + 成交量柱（同样只画已揭示）
+    el('line', { x1: L, y1: T + priceH + volGap / 2, x2: L + plotW, y2: T + priceH + volGap / 2, stroke: '#232a36', 'stroke-width': 1 });
+    if (maxV > 0) {
+      vis.forEach(function (k, i) {
+        var vh = Math.max(0.5, (k.v || 0) / maxV * volH);
+        el('rect', { x: x(i) - bodyW / 2, y: volBase - vh, width: bodyW, height: vh, fill: color(k), opacity: 0.75 });
+      });
+      var vt = el('text', { x: L + 4, y: T + priceH + volGap + 10, 'font-size': 10, fill: '#5a6472' });
+      vt.textContent = '量 ' + volFmt(maxV);
+    }
+
+    // 最新揭示价横线
+    var last = data[pointer];
+    var ly = y(last.c), lcol = color(last);
+    el('line', { x1: L, y1: ly, x2: L + plotW, y2: ly, stroke: lcol, 'stroke-width': 1, 'stroke-dasharray': '4 4', opacity: 0.6 });
+    var lbg = el('rect', { x: L + plotW + 2, y: ly - 9, width: R - 6, height: 18, rx: 3, fill: lcol });
+    var lt = el('text', { x: L + plotW + (R - 6) / 2 + 2, y: ly + 4, 'font-size': 11, 'text-anchor': 'middle', fill: '#0b0e14', 'font-weight': 600 });
+    lt.textContent = fmt(last.c);
+
+    // 持仓强平线（红色虚线）
+    positions.forEach(function (p) {
+      var py = y(p.liq);
+      if (py >= T - 1 && py <= T + priceH + 1) {  // 出画的强平线不画，避免标签飘到图外
+        el('line', { x1: L, y1: py, x2: L + plotW, y2: py, stroke: '#f6465d', 'stroke-width': 1, 'stroke-dasharray': '6 4', opacity: 0.75 });
+        var tt = el('text', { x: L + 4, y: Math.max(py - 4, T + 10), 'font-size': 10, fill: '#f6465d' });
+        tt.textContent = (p.dir === 'long' ? '多' : '空') + '强平 ' + fmt(p.liq);
+      }
+    });
+
+    // 未揭示区域遮罩
+    if (pointer < N - 1) {
+      var fx = L + plotW / N * (pointer + 1);
+      el('rect', { x: fx, y: T, width: L + plotW - fx, height: plotH, fill: '#0b0e14', opacity: 0.75 });
+      var ft = el('text', { x: (fx + L + plotW) / 2, y: T + plotH / 2, 'font-size': 12, fill: '#3a4453', 'text-anchor': 'middle' });
+      ft.textContent = '未揭示';
+    }
+
+    // 买卖点标记
+    function triUp(cx, cy, col) { el('path', { d: 'M' + cx + ' ' + (cy - 5) + 'L' + (cx - 4) + ' ' + (cy + 3) + 'L' + (cx + 4) + ' ' + (cy + 3) + 'Z', fill: col }); }
+    function triDn(cx, cy, col) { el('path', { d: 'M' + cx + ' ' + (cy + 5) + 'L' + (cx - 4) + ' ' + (cy - 3) + 'L' + (cx + 4) + ' ' + (cy - 3) + 'Z', fill: col }); }
+    trades.forEach(function (t) {
+      if (t.openBar > pointer) return;
+      if (t.dir === 'long') { triUp(x(t.openBar), y(data[t.openBar].l) + 12, UP); }
+      else { triDn(x(t.openBar), y(data[t.openBar].h) - 12, DOWN); }
+      if (t.closeBar <= pointer) {
+        var col = t.result === '爆仓' ? '#f6465d' : (t.pnl >= 0 ? UP : DOWN);
+        if (t.dir === 'long') { triDn(x(t.closeBar), y(data[t.closeBar].h) - 12, col); }
+        else { triUp(x(t.closeBar), y(data[t.closeBar].l) + 12, col); }
+      }
+    });
+
+    // 光标元素
+    window._hl = el('rect', { y: T, width: plotW / N, height: plotH, fill: '#ffffff', opacity: 0, 'pointer-events': 'none' });
+    window._vx = el('line', { y1: T, y2: T + plotH, stroke: '#8b95a5', 'stroke-width': 1, 'stroke-dasharray': '3 3', opacity: 0, 'pointer-events': 'none' });
+    window._hy = el('line', { x1: L, x2: L + plotW, stroke: '#8b95a5', 'stroke-width': 1, 'stroke-dasharray': '3 3', opacity: 0, 'pointer-events': 'none' });
+    window._dot = el('circle', { r: 3, opacity: 0, 'pointer-events': 'none' });
+  }
+
+  /* ============ K线详情查看（限制在已揭示范围） ============ */
+  function defaultInfo() {
+    info.innerHTML = '<span>按住图表查看单根K线详情（仅已揭示部分可选中）</span>';
+  }
+
+  function show(i) {
+    if (i > pointer) i = pointer;
+    cur = i;
+    var k = data[i], col = color(k);
+    _hl.setAttribute('x', L + plotW / N * i);
+    _hl.setAttribute('opacity', 0.06);
+    _vx.setAttribute('x1', x(i)); _vx.setAttribute('x2', x(i)); _vx.setAttribute('opacity', 0.6);
+    _hy.setAttribute('y1', y(k.c)); _hy.setAttribute('y2', y(k.c)); _hy.setAttribute('opacity', 0.6);
+    _dot.setAttribute('cx', x(i)); _dot.setAttribute('cy', y(k.c));
+    _dot.setAttribute('fill', col); _dot.setAttribute('opacity', 1);
+    var c = k.c >= k.o ? 'up' : 'down';
+    info.innerHTML =
+      '<span class="date">' + k.d + '</span>' +
+      '<span>开 <b class="' + c + '">' + fmt(k.o) + '</b></span>' +
+      '<span>高 <b class="' + c + '">' + fmt(k.h) + '</b></span>' +
+      '<span>低 <b class="' + c + '">' + fmt(k.l) + '</b></span>' +
+      '<span>收 <b class="' + c + '">' + fmt(k.c) + '</b></span>' +
+      '<span>涨跌 <b class="' + (k.pct >= 0 ? 'up' : 'down') + '">' + pctStr(k.pct) + '</b></span>' +
+      '<span>量 <b>' + volFmt(k.v || 0) + '</b></span>';
+  }
+
+  function clearHover() {
+    _hl.setAttribute('opacity', 0); _vx.setAttribute('opacity', 0);
+    _hy.setAttribute('opacity', 0); _dot.setAttribute('opacity', 0);
+    if (pinned >= 0) show(pinned); else defaultInfo();
+  }
+
+  function pick(clientX, clientY) {
+    var pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    var loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+    var i = Math.round((loc.x - L) / (plotW / N) - 0.5);
+    if (i < 0) i = 0;
+    if (i > pointer) i = pointer;
+    return i;
+  }
+
+  /* ============ HUD / 持仓列表 / 结算 ============ */
+  function updateHUD() {
+    var eq = equityAt(data[pointer].close);
+    if (!isFinite(eq)) eq = balance;
+    var pct = (eq / INIT - 1) * 100;
+    document.getElementById('eqV').textContent = eq.toFixed(2);
+    var pv = document.getElementById('pctV');
+    pv.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+    pv.className = 'v ' + (pct >= 0 ? 'up' : 'down');
+    document.getElementById('freeV').textContent = balance.toFixed(2);
+    document.getElementById('barCnt').textContent = '第 ' + (pointer + 1) + ' / ' + N + ' 根';
+    document.getElementById('longBtn').disabled = over;
+    document.getElementById('shortBtn').disabled = over;
+  }
+
+  function renderPos() {
+    var elp = document.getElementById('posList');
+    var html = '';
+    pending.forEach(function (o) {
+      html += '<div class="pos-item"><span class="tag ' + o.dir + '">' + (o.dir === 'long' ? '多' : '空') + '·挂单</span>' +
+        '<div class="p-info">' + o.lev + 'x · 保证金 ' + o.margin.toFixed(0) + ' U · 下根开盘成交</div></div>';
+    });
+    var price = data[pointer].close;
+    positions.forEach(function (p) {
+      var pnl = floating(p, price);
+      var dist = p.dir === 'long' ? (price - p.liq) / price : (p.liq - price) / price;
+      html += '<div class="pos-item">' +
+        '<span class="tag ' + p.dir + '">' + (p.dir === 'long' ? '多' : '空') + ' ' + p.lev + 'x</span>' +
+        '<div class="p-info">开仓 ' + fmt(p.entry) + ' · 强平 ' + fmt(p.liq) + ' · 距强平 ' + (dist * 100).toFixed(1) + '%' +
+        (p.closeReq ? ' · <b style="color:#9e6a03">平仓挂单中</b>' : '') + '</div>' +
+        '<div class="p-pnl ' + (pnl >= 0 ? 'up' : 'down') + '">' + money(pnl) + '</div>' +
+        (p.closeReq ? '' : '<button class="close-btn" data-close="' + p.id + '">平仓</button>') +
+        '</div>';
+    });
+    elp.innerHTML = html || '<div class="empty">当前无持仓 —— 观望也是一种决策</div>';
+    elp.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', function () { requestClose(+b.dataset.close); });
+    });
+  }
+
+  function showResult(reason, finalEq) {
+    document.getElementById('resReason').textContent = reason;
+    var ret = (finalEq / INIT - 1) * 100;
+    document.getElementById('resTitle').textContent = ret > 0 ? '盈利收场' : (finalEq < 1 ? '爆仓出局' : '本局结束');
+    var wins = trades.filter(function (t) { return t.pnl > 0; });
+    var gw = wins.reduce(function (s, t) { return s + t.pnl; }, 0);
+    var gl = Math.abs(trades.filter(function (t) { return t.pnl < 0; }).reduce(function (s, t) { return s + t.pnl; }, 0));
+    var peak = INIT, mdd = 0;
+    equityCurve.forEach(function (e) { peak = Math.max(peak, e); mdd = Math.max(mdd, (peak - e) / peak); });
+    var stats = [
+      ['最终权益', finalEq.toFixed(2) + ' U', ret >= 0 ? 'up' : 'down'],
+      ['总收益率', (ret >= 0 ? '+' : '') + ret.toFixed(2) + '%', ret >= 0 ? 'up' : 'down'],
+      ['交易次数', trades.length, ''],
+      ['胜率', trades.length ? (wins.length / trades.length * 100).toFixed(0) + '%' : '—', ''],
+      ['盈亏比', gl > 0 ? (gw / gl).toFixed(2) : '—', ''],
+      ['最大回撤', (mdd * 100).toFixed(1) + '%', 'down']
+    ];
+    document.getElementById('resGrid').innerHTML = stats.map(function (s) {
+      return '<div class="res-cell"><div class="l">' + s[0] + '</div><div class="v ' + s[2] + '">' + s[1] + '</div></div>';
+    }).join('');
+    var rows = '<tr><th>方向/杠杆</th><th>开仓</th><th>平仓</th><th>结果</th><th>盈亏</th></tr>';
+    trades.forEach(function (t) {
+      rows += '<tr><td><span class="tag ' + t.dir + '">' + (t.dir === 'long' ? '多' : '空') + ' ' + t.lev + 'x</span></td>' +
+        '<td>' + fmt(t.entry) + '</td><td>' + fmt(t.exit) + '</td><td>' + t.result +
+        '</td><td class="' + (t.pnl >= 0 ? 'up' : 'down') + '">' + money(t.pnl) + '</td></tr>';
+    });
+    document.getElementById('tradeTable').innerHTML = trades.length ? rows :
+      '<tr><td colspan="5" style="text-align:center;color:#5a6472">本局没有成交任何交易</td></tr>';
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  /* ============ 回放控制 ============ */
+  var timer = null, speed = 8, curLev = 5;
+
+  function play() {
+    if (timer || over) return;
+    document.getElementById('playBtn').textContent = '⏸ 暂停';
+    timer = setInterval(advance, 1000 / speed);
+  }
+  function pause() {
+    clearInterval(timer); timer = null;
+    document.getElementById('playBtn').textContent = '▶ 播放';
+  }
+
+  /* ============ 事件绑定 ============ */
+  var levInput = document.getElementById('lev');
+  levInput.addEventListener('input', function () {
+    curLev = +levInput.value;
+    document.getElementById('levVal').textContent = curLev + 'x';
+  });
+
+  document.querySelectorAll('.row2 [data-frac]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.getElementById('margin').value = (balance * (+b.dataset.frac)).toFixed(0);
+    });
+  });
+
+  document.getElementById('longBtn').addEventListener('click', function () { requestOpen('long'); });
+  document.getElementById('shortBtn').addEventListener('click', function () { requestOpen('short'); });
+  document.getElementById('stepBtn').addEventListener('click', function () { pause(); advance(); });
+  document.getElementById('playBtn').addEventListener('click', function () { timer ? pause() : play(); });
+  document.getElementById('quitBtn').addEventListener('click', function () {
+    if (!over) endSession('手动结束本局');
+  });
+  document.querySelectorAll('[data-spd]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('[data-spd]').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      speed = +b.dataset.spd;
+      if (timer) { pause(); play(); }
+    });
+  });
+
+  document.getElementById('regen').addEventListener('click', function () {
+    pause();
+    if (ALL.length) newWindow(); else genData();
+    pinned = -1; cur = -1;
+    resetGame();
+  });
+  document.getElementById('againBtn').addEventListener('click', function () {
+    document.getElementById('regen').click();
+  });
+  document.getElementById('closeResBtn').addEventListener('click', function () {
+    document.getElementById('overlay').classList.remove('show');
+  });
+
+  svg.addEventListener('mousemove', function (e) { show(pick(e.clientX, e.clientY)); });
+  svg.addEventListener('touchstart', function (e) {
+    var t = e.changedTouches[0];
+    var i = pick(t.clientX, t.clientY);
+    pinned = (pinned === i) ? -1 : i;
+    show(i);
+  }, { passive: true });
+  svg.addEventListener('touchmove', function (e) {
+    var t = e.changedTouches[0];
+    show(pick(t.clientX, t.clientY));
+  }, { passive: true });
+  svg.addEventListener('mouseleave', clearHover);
+  svg.addEventListener('click', function (e) {
+    var i = pick(e.clientX, e.clientY);
+    pinned = (pinned === i) ? -1 : i;
+    show(i);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    var i = (cur >= 0) ? cur : pointer;
+    i += (e.key === 'ArrowLeft') ? -1 : 1;
+    if (i < 0) i = 0;
+    if (i > pointer) i = pointer;
+    show(i);
+  });
+
+  /* ============ 启动 ============ */
+  async function boot() {
+    pause();
+    document.querySelectorAll('.tf-btn').forEach(function (x) {
+      x.classList.toggle('on', x.dataset.tf === selectedTF);
+    });
+    info.innerHTML = '<span>正在拉取 BTC/USDT ' + TF_NAME[selectedTF] + 'K线（币安，约1000根）…</span>';
+    var ok = await loadReal();
+    if (ok) {
+      document.querySelector('.title small').textContent = '真实行情 · BTC/USDT ' + TF_NAME[selectedTF] + ' · v1.4';
+      newWindow();
+    } else {
+      document.querySelector('.title small').textContent = '离线模拟 · ' + TF_NAME[selectedTF] + ' · v1.4';
+      genData();
+      info.innerHTML = '<span>网络不可用，已切换为本地模拟行情</span>';
+    }
+    pinned = -1; cur = -1;
+    resetGame();
+  }
+
+  document.querySelectorAll('.tf-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (b.dataset.tf === selectedTF) return;
+      selectedTF = b.dataset.tf;
+      boot();
+    });
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>
